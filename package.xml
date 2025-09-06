@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>camera_calibration</name>
+  <version>0.1.0</version>
+  <description>camera calibration in c++</description>
+  <maintainer email="you@example.com">taitaifreetime</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>opencv</depend>
+</package>
