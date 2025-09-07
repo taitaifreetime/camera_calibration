@@ -40,6 +40,19 @@ target_link_libraries(disparity_mapping
     ${OpenCV_LIBS}
     yaml-cpp
 )
+# target_compile_definitions(disparity_mapping PRIVATE DEBUG)
+
+add_executable(capture_monocular src/capture_monocular.cpp include/utils/utils.hpp)
+target_link_libraries(capture_monocular
+    ${OpenCV_LIBS}
+)
+# target_compile_definitions(capture_monocular PRIVATE DEBUG)
+
+add_executable(capture_stereo src/capture_stereo.cpp include/utils/utils.hpp)
+target_link_libraries(capture_stereo
+    ${OpenCV_LIBS}
+)
+# target_compile_definitions(capture_stereo PRIVATE DEBUG)
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_dependencies(OpenCV)
