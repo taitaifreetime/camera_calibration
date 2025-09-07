@@ -99,6 +99,9 @@ int main(int argc, char* argv[])
         2,    // speckleRange: Maximum disparity variation within each connected component.
         cv::StereoSGBM::MODE_SGBM_3WAY // mode: SGBM algorithm mode (e.g., MODE_SGBM, MODE_HH). MODE_SGBM_3WAY for arm core.
     );
+    cv::Ptr<cv::ximgproc::DisparityWLSFilter> wls_filter;
+    wls_filter = cv::ximgproc::createDisparityWLSFilter(sgbm);
+    cv::Ptr<cv::StereoMatcher> right_matcher = cv::ximgproc::createRightMatcher(sgbm);
 
     cv::VideoCapture capL(ComputerVision::getGstreamer(left_camera_id, left_width, left_height, fps, left_flip_method), cv::CAP_GSTREAMER);
     cv::VideoCapture capR(ComputerVision::getGstreamer(right_camera_id, right_width, right_height, fps, right_flip_method), cv::CAP_GSTREAMER);
@@ -118,7 +121,11 @@ int main(int argc, char* argv[])
         if(frameL.empty() || frameR.empty()) continue;
 
         // calc depth image
-        calib.calcDepthImage(frameL, frameR, disparity, sgbm, depth_scale);
+        // calib.calcDepthImage(frameL, frameR, disparity, sgbm, depth_scale);
+        calib.calcDepthImageWithPostProc(
+            frameL, frameR, disparity, sgbm, depth_scale, 
+            right_matcher, wls_filter, 8000.0, 3.5);
+        
 
         #ifdef DEBUG
         auto end = std::chrono::steady_clock::now();

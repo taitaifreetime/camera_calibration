@@ -2,6 +2,7 @@
 
 #include <string>
 #include <opencv2/opencv.hpp>
+#include "opencv2/ximgproc/disparity_filter.hpp" 
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -65,14 +66,16 @@ public:
 
     void calcRectifiedImage(
         const cv::Mat &original_img, 
-        cv::Mat &rect_img
+        cv::Mat &rect_img, 
+        const int &approx = cv::INTER_NEAREST
     ) const;
 
     void calcRectifiedImage(
         const cv::Mat &original_img1, 
         cv::Mat &rect_img1, 
         const cv::Mat &original_img2, 
-        cv::Mat &rect_img2 
+        cv::Mat &rect_img2, 
+        const int &approx = cv::INTER_NEAREST
     ) const;
 
     void calcDepthImage(
@@ -81,6 +84,18 @@ public:
         cv::Mat &depth_img, 
         const cv::Ptr<cv::StereoSGBM> &sgbm, 
         const double &depth_scale
+    ) const;
+
+    void calcDepthImageWithPostProc(
+        const cv::Mat &original_left_img, 
+        const cv::Mat &original_right_img, 
+        cv::Mat &depth_img, 
+        const cv::Ptr<cv::StereoSGBM> &left_matcher,
+        const double &depth_scale, 
+        const cv::Ptr<cv::StereoMatcher> &right_matcher, 
+        const cv::Ptr<cv::ximgproc::DisparityWLSFilter> &wls_filter, 
+        const float &lambda, 
+        const float &sigma
     ) const;
 
     void calibrateMonocularCamera(

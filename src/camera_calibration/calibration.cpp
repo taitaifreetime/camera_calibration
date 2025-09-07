@@ -26,145 +26,21 @@ CameraCalibration::~CameraCalibration()
     map2y_.release();
 }
 
-
-
-void CameraCalibration::setParameter(
-    const int &width, const int &height, 
-    const cv::Mat &camera_matrix, 
-    const cv::Mat &dist_coeffs, 
-    const cv::Mat &rectification_matrix, 
-    const cv::Mat &projection_matrix
-){
-    width1_ = width;
-    height1_ = height; 
-    camera_matrix1_ = camera_matrix.clone(); 
-    dist_coeffs1_ = dist_coeffs.clone(); 
-    rectification_matrix1_ = rectification_matrix.clone(); 
-    projection_matrix1_ = projection_matrix.clone(); 
-}
-
-void CameraCalibration::setParameter( 
-    const int &width1, const int &height1, 
-    const cv::Mat &camera_matrix1, 
-    const cv::Mat &dist_coeffs1, 
-    const cv::Mat &rectification_matrix1, 
-    const cv::Mat &projection_matrix1, 
-    const int &width2, const int &height2, 
-    const cv::Mat &camera_matrix2, 
-    const cv::Mat &dist_coeffs2, 
-    const cv::Mat &rectification_matrix2, 
-    const cv::Mat &projection_matrix2
-){
-    width1_ = width1;
-    height1_ = height1; 
-    camera_matrix1_ = camera_matrix1.clone(); 
-    dist_coeffs1_ = dist_coeffs1.clone(); 
-    rectification_matrix1_ = rectification_matrix1.clone(); 
-    projection_matrix1_ = projection_matrix1.clone(); 
-    width2_ = width2;
-    height2_ = height2; 
-    camera_matrix2_ = camera_matrix2.clone(); 
-    dist_coeffs2_ = dist_coeffs2.clone(); 
-    rectification_matrix2_ = rectification_matrix2.clone(); 
-    projection_matrix2_ = projection_matrix2.clone(); 
-}
-
-void CameraCalibration::setRectifiedMap(
-    const cv::Mat &mapx, 
-    const cv::Mat &mapy
-){
-    map1x_ = mapx.clone(); 
-    map1y_ = mapy.clone();
-}
-
-void CameraCalibration::setRectifiedMap(
-    const cv::Mat &map1x, 
-    const cv::Mat &map1y,
-    const cv::Mat &map2x, 
-    const cv::Mat &map2y
-){
-    map1x_ = map1x.clone(); 
-    map1y_ = map1y.clone();
-    map2x_ = map2x.clone(); 
-    map2y_ = map2y.clone();
-}
-
-bool CameraCalibration::makeRectifiedMap()
-{
-    if (
-        width1_ != 0 && height1_ != 0 &&
-        !camera_matrix1_.empty() &&
-        !dist_coeffs1_.empty() && 
-        !rectification_matrix1_.empty() &&
-        !projection_matrix1_.empty()
-    ){
-        cv::initUndistortRectifyMap(
-            camera_matrix1_, dist_coeffs1_, 
-            rectification_matrix1_, projection_matrix1_, 
-            cv::Size(width1_, height1_),
-            CV_32FC1, map1x_, map1y_);
-    }
-    else return false;
-
-    if (
-        width2_ != 0 && height2_ != 0 &&
-        !camera_matrix2_.empty() &&
-        !dist_coeffs2_.empty() && 
-        !rectification_matrix2_.empty() &&
-        !projection_matrix2_.empty()
-    ){
-        cv::initUndistortRectifyMap(
-            camera_matrix2_, dist_coeffs2_, 
-            rectification_matrix2_, projection_matrix2_, 
-            cv::Size(width2_, height2_),
-            CV_32FC1, map2x_, map2y_);
-    }
-    else return false;
-
-    return true;
-}
-
-void CameraCalibration::calcRectifiedImage(
-    const cv::Mat &original_img, 
-    cv::Mat &rect_img
-) const {
-    cv::remap(original_img, rect_img, map1x_, map1y_, cv::INTER_LINEAR);
-}
-
-void CameraCalibration::calcRectifiedImage(
-    const cv::Mat &original_img1, 
-    cv::Mat &rect_img1, 
-    const cv::Mat &original_img2, 
-    cv::Mat &rect_img2 
-) const {
-    cv::remap(original_img1, rect_img1, map1x_, map1y_, cv::INTER_LINEAR);
-    cv::remap(original_img2, rect_img2, map2x_, map2y_, cv::INTER_LINEAR);
-}
-
-void CameraCalibration::calcDepthImage(
-    const cv::Mat &original_left_img, 
-    const cv::Mat &original_right_img, 
-    cv::Mat &depth_img,
-    const cv::Ptr<cv::StereoSGBM> &sgbm,
-    const double &depth_scale
-) const {
-    // --- Rectify images ---
-    cv::Mat rect_left_img, rect_right_img;
-    cv::remap(original_left_img, rect_left_img, map1x_, map1y_, cv::INTER_LINEAR);
-    cv::remap(original_right_img, rect_right_img, map2x_, map2y_, cv::INTER_LINEAR);
-
-    // --- Convert to grayscale ---
-    cv::Mat gray_left_img, gray_right_img;
-    cv::cvtColor(rect_left_img, gray_left_img, cv::COLOR_BGR2GRAY);
-    cv::cvtColor(rect_right_img, gray_right_img, cv::COLOR_BGR2GRAY);
-    cv::resize(gray_left_img, gray_left_img, cv::Size(), 0.5, 0.5);
-    cv::resize(gray_right_img, gray_right_img, cv::Size(), 0.5, 0.5);
-
-    // --- Compute disparity ---
-    sgbm->compute(gray_left_img, gray_right_img, depth_img);
-    depth_img.convertTo(depth_img, CV_8U, depth_scale);
-}
-
+/**
+ * @brief load camera parameter file
+ * 
+ * @param file_name 
+ * @param width 
+ * @param height 
+ * @param camera_name 
+ * @param camera_matrix 
+ * @param distortion_model 
+ * @param dist_coeffs 
+ * @param rectification_matrix 
+ * @param projection_matrix 
+ * @return true 
+ * @return false 
+ */
 bool CameraCalibration::loadParameter(
     const std::string &file_name, 
     int &width, int &height, 
@@ -211,6 +87,246 @@ bool CameraCalibration::loadParameter(
         std::cerr << e.what() << std::endl;
         return false;
     }
+}
+
+/**
+ * @brief 
+ * 
+ * @param width 
+ * @param height 
+ * @param camera_matrix 
+ * @param dist_coeffs 
+ * @param rectification_matrix 
+ * @param projection_matrix 
+ */
+void CameraCalibration::setParameter(
+    const int &width, const int &height, 
+    const cv::Mat &camera_matrix, 
+    const cv::Mat &dist_coeffs, 
+    const cv::Mat &rectification_matrix, 
+    const cv::Mat &projection_matrix
+){
+    width1_ = width;
+    height1_ = height; 
+    camera_matrix1_ = camera_matrix.clone(); 
+    dist_coeffs1_ = dist_coeffs.clone(); 
+    rectification_matrix1_ = rectification_matrix.clone(); 
+    projection_matrix1_ = projection_matrix.clone(); 
+}
+
+/**
+ * @brief 
+ * 
+ * @param width1 
+ * @param height1 
+ * @param camera_matrix1 
+ * @param dist_coeffs1 
+ * @param rectification_matrix1 
+ * @param projection_matrix1 
+ * @param width2 
+ * @param height2 
+ * @param camera_matrix2 
+ * @param dist_coeffs2 
+ * @param rectification_matrix2 
+ * @param projection_matrix2 
+ */
+void CameraCalibration::setParameter( 
+    const int &width1, const int &height1, 
+    const cv::Mat &camera_matrix1, 
+    const cv::Mat &dist_coeffs1, 
+    const cv::Mat &rectification_matrix1, 
+    const cv::Mat &projection_matrix1, 
+    const int &width2, const int &height2, 
+    const cv::Mat &camera_matrix2, 
+    const cv::Mat &dist_coeffs2, 
+    const cv::Mat &rectification_matrix2, 
+    const cv::Mat &projection_matrix2
+){
+    width1_ = width1;
+    height1_ = height1; 
+    camera_matrix1_ = camera_matrix1.clone(); 
+    dist_coeffs1_ = dist_coeffs1.clone(); 
+    rectification_matrix1_ = rectification_matrix1.clone(); 
+    projection_matrix1_ = projection_matrix1.clone(); 
+    width2_ = width2;
+    height2_ = height2; 
+    camera_matrix2_ = camera_matrix2.clone(); 
+    dist_coeffs2_ = dist_coeffs2.clone(); 
+    rectification_matrix2_ = rectification_matrix2.clone(); 
+    projection_matrix2_ = projection_matrix2.clone(); 
+}
+
+/**
+ * @brief 
+ * 
+ * @param mapx 
+ * @param mapy 
+ */
+void CameraCalibration::setRectifiedMap(
+    const cv::Mat &mapx, 
+    const cv::Mat &mapy
+){
+    map1x_ = mapx.clone(); 
+    map1y_ = mapy.clone();
+}
+
+/**
+ * @brief 
+ * 
+ * @param map1x 
+ * @param map1y 
+ * @param map2x 
+ * @param map2y 
+ */
+void CameraCalibration::setRectifiedMap(
+    const cv::Mat &map1x, 
+    const cv::Mat &map1y,
+    const cv::Mat &map2x, 
+    const cv::Mat &map2y
+){
+    map1x_ = map1x.clone(); 
+    map1y_ = map1y.clone();
+    map2x_ = map2x.clone(); 
+    map2y_ = map2y.clone();
+}
+
+/**
+ * @brief initUndistortRectifyMap
+ * 
+ * @return true if params for first camera were initialized
+ * @return false 
+ */
+bool CameraCalibration::makeRectifiedMap()
+{
+    if (
+        width1_ != 0 && height1_ != 0 &&
+        !camera_matrix1_.empty() &&
+        !dist_coeffs1_.empty() && 
+        !rectification_matrix1_.empty() &&
+        !projection_matrix1_.empty()
+    ){
+        cv::initUndistortRectifyMap(
+            camera_matrix1_, dist_coeffs1_, 
+            rectification_matrix1_, projection_matrix1_, 
+            cv::Size(width1_, height1_),
+            CV_32FC1, map1x_, map1y_);
+    }
+    else return false;
+
+    if (
+        width2_ != 0 && height2_ != 0 &&
+        !camera_matrix2_.empty() &&
+        !dist_coeffs2_.empty() && 
+        !rectification_matrix2_.empty() &&
+        !projection_matrix2_.empty()
+    ){
+        cv::initUndistortRectifyMap(
+            camera_matrix2_, dist_coeffs2_, 
+            rectification_matrix2_, projection_matrix2_, 
+            cv::Size(width2_, height2_),
+            CV_32FC1, map2x_, map2y_);
+    }
+
+    return true;
+}
+
+/**
+ * @brief 
+ * 
+ * @param original_img 
+ * @param rect_img 
+ * @param approx 
+ */
+void CameraCalibration::calcRectifiedImage(
+    const cv::Mat &original_img, 
+    cv::Mat &rect_img, 
+    const int &approx
+) const {
+    cv::remap(original_img, rect_img, map1x_, map1y_, approx);
+}
+
+/**
+ * @brief 
+ * 
+ * @param original_img1 
+ * @param rect_img1 
+ * @param original_img2 
+ * @param rect_img2 
+ * @param approx 
+ */
+void CameraCalibration::calcRectifiedImage(
+    const cv::Mat &original_img1, 
+    cv::Mat &rect_img1, 
+    const cv::Mat &original_img2, 
+    cv::Mat &rect_img2, 
+    const int &approx
+) const {
+    cv::remap(original_img1, rect_img1, map1x_, map1y_, approx);
+    cv::remap(original_img2, rect_img2, map2x_, map2y_, approx);
+}
+
+/**
+ * @brief 
+ * 
+ * @param original_left_img 
+ * @param original_right_img 
+ * @param depth_img 
+ * @param sgbm 
+ * @param depth_scale 
+ */
+void CameraCalibration::calcDepthImage(
+    const cv::Mat &original_left_img, 
+    const cv::Mat &original_right_img, 
+    cv::Mat &depth_img,
+    const cv::Ptr<cv::StereoSGBM> &sgbm,
+    const double &depth_scale
+) const {
+    // --- Rectify images ---
+    cv::Mat rect_left_img, rect_right_img;
+    calcRectifiedImage(original_left_img, rect_left_img, original_right_img, rect_right_img);
+
+    // --- Convert to grayscale ---
+    cv::Mat gray_left_img, gray_right_img;
+    cv::cvtColor(rect_left_img, gray_left_img, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(rect_right_img, gray_right_img, cv::COLOR_BGR2GRAY);
+    cv::resize(gray_left_img, gray_left_img, cv::Size(), 0.5, 0.5);
+    cv::resize(gray_right_img, gray_right_img, cv::Size(), 0.5, 0.5);
+
+    // --- Compute disparity ---
+    sgbm->compute(gray_left_img, gray_right_img, depth_img);
+    depth_img.convertTo(depth_img, CV_8U, depth_scale);
+}
+
+void CameraCalibration::calcDepthImageWithPostProc(
+    const cv::Mat &original_left_img, 
+    const cv::Mat &original_right_img, 
+    cv::Mat &depth_img, 
+    const cv::Ptr<cv::StereoSGBM> &left_matcher,
+    const double &depth_scale, 
+    const cv::Ptr<cv::StereoMatcher> &right_matcher, 
+    const cv::Ptr<cv::ximgproc::DisparityWLSFilter> &wls_filter, 
+    const float &lambda, 
+    const float &sigma
+) const {
+    // --- Rectify images ---
+    cv::Mat rect_left_img, rect_right_img;
+    calcRectifiedImage(original_left_img, rect_left_img, original_right_img, rect_right_img);
+
+    // --- Convert to grayscale ---
+    cv::Mat gray_left_img, gray_right_img;
+    cv::cvtColor(rect_left_img, gray_left_img, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(rect_right_img, gray_right_img, cv::COLOR_BGR2GRAY);
+    cv::resize(gray_left_img, gray_left_img, cv::Size(), 0.5, 0.5);
+    cv::resize(gray_right_img, gray_right_img, cv::Size(), 0.5, 0.5);
+
+    // --- Compute disparity ---
+    cv::Mat depth_img_right;
+    left_matcher->compute(gray_left_img, gray_right_img, depth_img);
+    right_matcher->compute(gray_right_img, gray_left_img, depth_img_right);
+    wls_filter->setLambda(lambda);
+    wls_filter->setSigmaColor(sigma);
+    wls_filter->filter(depth_img, gray_left_img, depth_img, depth_img_right);
+    depth_img.convertTo(depth_img, CV_8U, depth_scale);
 }
 
 /**

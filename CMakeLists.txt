@@ -6,6 +6,7 @@ find_package(OpenCV REQUIRED)
 
 add_library(${PROJECT_NAME}
     src/camera_calibration/calibration.cpp
+    src/utils/computer_vision.cpp
 )
 
 target_include_directories(${PROJECT_NAME}
@@ -16,49 +17,34 @@ target_include_directories(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
     ${OpenCV_LIBS}
+    yaml-cpp
 )
 
 include_directories(
   include
 )
-add_executable(calibrate_monocular src/calibrate_monocular.cpp src/camera_calibration/calibration.cpp src/utils/computer_vision.cpp)
-target_link_libraries(calibrate_monocular
-    ${OpenCV_LIBS}
-    yaml-cpp
-)
+add_executable(calibrate_monocular src/calibrate_monocular.cpp)
+target_link_libraries(calibrate_monocular ${PROJECT_NAME})
 # target_compile_definitions(calibrate_monocular PRIVATE DEBUG)
 
-add_executable(calibrate_stereo src/calibrate_stereo.cpp src/camera_calibration/calibration.cpp src/utils/computer_vision.cpp)
-target_link_libraries(calibrate_stereo
-    ${OpenCV_LIBS}
-    yaml-cpp
-)
+add_executable(calibrate_stereo src/calibrate_stereo.cpp)
+target_link_libraries(calibrate_stereo ${PROJECT_NAME})
 # target_compile_definitions(calibrate_stereo PRIVATE DEBUG)
 
-add_executable(rectification_mapping src/rectification_mapping.cpp src/camera_calibration/calibration.cpp src/utils/computer_vision.cpp)
-target_link_libraries(rectification_mapping
-    ${OpenCV_LIBS}
-    yaml-cpp
-)
-# target_compile_definitions(rectification_mapping PRIVATE DEBUG)
+add_executable(rectification_mapping src/rectification_mapping.cpp)
+target_link_libraries(rectification_mapping ${PROJECT_NAME})
+target_compile_definitions(rectification_mapping PRIVATE DEBUG)
 
-add_executable(disparity_mapping src/disparity_mapping.cpp src/camera_calibration/calibration.cpp src/utils/computer_vision.cpp)
-target_link_libraries(disparity_mapping
-    ${OpenCV_LIBS}
-    yaml-cpp
-)
-# target_compile_definitions(disparity_mapping PRIVATE DEBUG)
+add_executable(disparity_mapping src/disparity_mapping.cpp)
+target_link_libraries(disparity_mapping ${PROJECT_NAME})
+target_compile_definitions(disparity_mapping PRIVATE DEBUG)
 
-add_executable(capture_monocular src/capture_monocular.cpp src/utils/computer_vision.cpp)
-target_link_libraries(capture_monocular
-    ${OpenCV_LIBS}
-)
+add_executable(capture_monocular src/capture_monocular.cpp)
+target_link_libraries(capture_monocular ${PROJECT_NAME})
 # target_compile_definitions(capture_monocular PRIVATE DEBUG)
 
-add_executable(capture_stereo src/capture_stereo.cpp src/utils/computer_vision.cpp)
-target_link_libraries(capture_stereo
-    ${OpenCV_LIBS}
-)
+add_executable(capture_stereo src/capture_stereo.cpp)
+target_link_libraries(capture_stereo ${PROJECT_NAME})
 # target_compile_definitions(capture_stereo PRIVATE DEBUG)
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
