@@ -1,4 +1,4 @@
-#include "utils/utils.hpp"
+#include "utils/computer_vision.hpp"
 #include <opencv2/opencv.hpp>
 #include <filesystem>
 #include <string>
@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    cv::VideoCapture cap(utils::capture::getGstreamer(camera_id, width, height, fps, flip_method), cv::CAP_GSTREAMER);
+    cv::VideoCapture cap(ComputerVision::getGstreamer(camera_id, width, height, fps, flip_method), cv::CAP_GSTREAMER);
 
     if(!cap.isOpened()) {
         std::cerr << "Fail to open" << std::endl;

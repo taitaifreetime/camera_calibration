@@ -5,7 +5,7 @@ find_package(ament_cmake REQUIRED)
 find_package(OpenCV REQUIRED)
 
 add_library(${PROJECT_NAME}
-    src/calibration.cpp
+    src/camera_calibration/calibration.cpp
 )
 
 target_include_directories(${PROJECT_NAME}
@@ -21,34 +21,41 @@ target_link_libraries(${PROJECT_NAME}
 include_directories(
   include
 )
-add_executable(calibrate_monocular src/calibrate_monocular.cpp src/calibration.cpp)
+add_executable(calibrate_monocular src/calibrate_monocular.cpp src/camera_calibration/calibration.cpp src/utils/computer_vision.cpp)
 target_link_libraries(calibrate_monocular
     ${OpenCV_LIBS}
     yaml-cpp
 )
 # target_compile_definitions(calibrate_monocular PRIVATE DEBUG)
 
-add_executable(calibrate_stereo src/calibrate_stereo.cpp src/calibration.cpp)
+add_executable(calibrate_stereo src/calibrate_stereo.cpp src/camera_calibration/calibration.cpp src/utils/computer_vision.cpp)
 target_link_libraries(calibrate_stereo
     ${OpenCV_LIBS}
     yaml-cpp
 )
 # target_compile_definitions(calibrate_stereo PRIVATE DEBUG)
 
-add_executable(disparity_mapping src/disparity_mapping.cpp src/calibration.cpp include/utils/utils.hpp)
+add_executable(rectification_mapping src/rectification_mapping.cpp src/camera_calibration/calibration.cpp src/utils/computer_vision.cpp)
+target_link_libraries(rectification_mapping
+    ${OpenCV_LIBS}
+    yaml-cpp
+)
+# target_compile_definitions(rectification_mapping PRIVATE DEBUG)
+
+add_executable(disparity_mapping src/disparity_mapping.cpp src/camera_calibration/calibration.cpp src/utils/computer_vision.cpp)
 target_link_libraries(disparity_mapping
     ${OpenCV_LIBS}
     yaml-cpp
 )
 # target_compile_definitions(disparity_mapping PRIVATE DEBUG)
 
-add_executable(capture_monocular src/capture_monocular.cpp include/utils/utils.hpp)
+add_executable(capture_monocular src/capture_monocular.cpp src/utils/computer_vision.cpp)
 target_link_libraries(capture_monocular
     ${OpenCV_LIBS}
 )
 # target_compile_definitions(capture_monocular PRIVATE DEBUG)
 
-add_executable(capture_stereo src/capture_stereo.cpp include/utils/utils.hpp)
+add_executable(capture_stereo src/capture_stereo.cpp src/utils/computer_vision.cpp)
 target_link_libraries(capture_stereo
     ${OpenCV_LIBS}
 )
