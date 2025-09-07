@@ -13,7 +13,18 @@ make
 
 ./calibrate_stereo checker_width checker_height square_size[m] ../images/dir1 ../images/dir2
 
-./disparity_mapping left_camera_parameter_file right_camera_parameter_file left_camera_id right_camera_id left_camera_fps right_camera_fps
+./rectification_mapping left_camera_parameter_file right_camera_parameter_file left_camera_id right_camera_id fps left_flip_method right_flip_method
+
+./disparity_mapping left_camera_parameter_file right_camera_parameter_file left_camera_id right_camera_id fps left_flip_method right_flip_method
+```
+
+## Store calibration images
+```
+# push key s to save
+
+./capture_monocular camera_id width height fps flip_method ../images/dir1
+
+./capture_stereo camera1_id camera2_id width height fps flip_method1 flip_method2 ../images/dir1 ../images/dir2
 ```
 
 ## Tips

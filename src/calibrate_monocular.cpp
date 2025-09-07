@@ -1,4 +1,5 @@
 #include "camera_calibration/calibration.hpp"
+#include "utils/computer_vision.hpp"
 #include <string>
 #include <opencv2/opencv.hpp>
 
@@ -9,7 +10,7 @@ int main(int argc, char* argv[])
     // monocular 
     std::vector<cv::Mat> imgs;
     std::string path = argv[4];
-    cam_calib.loadImgs(path, imgs);
+    ComputerVision::loadImgs(path, imgs);
     cam_calib.calibrateMonocularCamera(imgs);
 
     return 0;

@@ -83,26 +83,6 @@ int main(int argc, char* argv[])
     );
     calib.makeRectifiedMap();
 
-    // StereoSGBM parameters
-    int numDisparities = 16*3;
-    int blockSize = 5; // lower -> faster
-    cv::Ptr<cv::StereoSGBM> sgbm = cv::StereoSGBM::create(
-        0,    // minDisparity: Minimum disparity value.
-        numDisparities, // numDisparities: Number of disparities (must be divisible by 16).
-        blockSize, // blockSize: Size of the SAD window.
-        8 * 1 * blockSize * blockSize,  // P1: First disparity smoothness parameter.
-        32 * 1 * blockSize * blockSize, // P2: Second disparity smoothness parameter.
-        1,    // disp12MaxDiff: Maximum allowed difference in the left-right disparity check.
-        31,   // preFilterCap: Truncation value for prefiltered image pixels.
-        10,   // uniquenessRatio: Margin by which the best cost should win the second best.
-        50,   // speckleWindowSize: Maximum size of smooth disparity regions to consider as noise.
-        2,    // speckleRange: Maximum disparity variation within each connected component.
-        cv::StereoSGBM::MODE_SGBM_3WAY // mode: SGBM algorithm mode (e.g., MODE_SGBM, MODE_HH). MODE_SGBM_3WAY for arm core.
-    );
-    cv::Ptr<cv::ximgproc::DisparityWLSFilter> wls_filter;
-    wls_filter = cv::ximgproc::createDisparityWLSFilter(sgbm);
-    cv::Ptr<cv::StereoMatcher> right_matcher = cv::ximgproc::createRightMatcher(sgbm);
-
     cv::VideoCapture capL(ComputerVision::getGstreamer(left_camera_id, left_width, left_height, fps, left_flip_method), cv::CAP_GSTREAMER);
     cv::VideoCapture capR(ComputerVision::getGstreamer(right_camera_id, right_width, right_height, fps, right_flip_method), cv::CAP_GSTREAMER);
     if(!capL.isOpened() || !capR.isOpened()) {
@@ -110,8 +90,7 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    cv::Mat frameL, frameR, disparity;
-    float depth_scale = 255.0/(numDisparities*16.0);
+    cv::Mat frameL, frameR, rectL, rectR;
     while(true) {
         #ifdef DEBUG
         auto start = std::chrono::steady_clock::now();
@@ -120,12 +99,8 @@ int main(int argc, char* argv[])
         capR.read(frameR);
         if(frameL.empty() || frameR.empty()) continue;
 
-        // calc depth image
-        // calib.calcDepthImage(frameL, frameR, disparity, sgbm, depth_scale);
-        calib.calcDepthImageWithPostProc(
-            frameL, frameR, disparity, sgbm, depth_scale, 
-            right_matcher, wls_filter, 8000.0, 3.5);
-        
+        // calc rectified image
+        calib.calcRectifiedImage(frameL, rectL, frameR, rectR);
 
         #ifdef DEBUG
         auto end = std::chrono::steady_clock::now();
@@ -134,7 +109,8 @@ int main(int argc, char* argv[])
         cv::imshow("Left", frameL);
         cv::imshow("Right", frameR);
         #endif
-        cv::imshow("Disparity", disparity);
+        cv::imshow("Left rect", rectL);
+        cv::imshow("Right rect", rectR);
 
         if(cv::waitKey(1) == 27) break; // ESC
     }

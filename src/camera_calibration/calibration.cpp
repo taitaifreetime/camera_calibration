@@ -6,48 +6,41 @@ CameraCalibration::CameraCalibration(
     const double &square_size
 ):
 board_size_(cv::Size(checker_width, checker_height)), 
-square_size_(square_size)
+square_size_(square_size), 
+width1_(0), width2_(0), height1_(0), height2_(0)
 {}
 
-CameraCalibration::~CameraCalibration(){}
-
-
-/**
- * @brief load images from dir
- * 
- * @param dir 
- * @param cv_imgs 
- * @return true 
- * @return false if dir not found
- */
-bool CameraCalibration::loadImgs(
-    const std::string &dir, 
-    std::vector<cv::Mat> &cv_imgs
-) const {
-    if (!std::filesystem::exists(dir))
-    {
-        std::cerr<< dir << " not found" << std::endl;
-        return false;
-    }
-
-    std::cout << "Images found in " << dir << " below" << std::endl;
-    for (const auto& entry : std::filesystem::directory_iterator(dir)) 
-    {
-        if (entry.is_regular_file()) 
-        {
-            std::string ext = entry.path().extension().string();
-            if (ext == ".jpg" || ext == ".png" || ext == ".jpeg" || ext == ".bmp") 
-            {
-                cv::Mat img = cv::imread(entry.path().string());
-                cv_imgs.push_back(img);
-                std::cout << entry.path().filename().string() << std::endl;
-            }
-        }
-    }
-
-    return true;
+CameraCalibration::~CameraCalibration()
+{
+    camera_matrix1_.release();
+    camera_matrix2_.release();
+    dist_coeffs1_.release();
+    dist_coeffs2_.release();
+    rectification_matrix1_.release();
+    rectification_matrix2_.release();
+    projection_matrix1_.release();
+    projection_matrix2_.release();
+    map1x_.release();
+    map2x_.release();
+    map1y_.release();
+    map2y_.release();
 }
 
+/**
+ * @brief load camera parameter file
+ * 
+ * @param file_name 
+ * @param width 
+ * @param height 
+ * @param camera_name 
+ * @param camera_matrix 
+ * @param distortion_model 
+ * @param dist_coeffs 
+ * @param rectification_matrix 
+ * @param projection_matrix 
+ * @return true 
+ * @return false 
+ */
 bool CameraCalibration::loadParameter(
     const std::string &file_name, 
     int &width, int &height, 
@@ -57,7 +50,7 @@ bool CameraCalibration::loadParameter(
     cv::Mat &dist_coeffs, 
     cv::Mat &rectification_matrix, 
     cv::Mat &projection_matrix
-) {
+){
     auto loadMatrix = [](const YAML::Node &config, const std::string &matrix_name, cv::Mat &matrix) -> bool
     {
         try 
@@ -99,12 +92,252 @@ bool CameraCalibration::loadParameter(
 /**
  * @brief 
  * 
+ * @param width 
+ * @param height 
+ * @param camera_matrix 
+ * @param dist_coeffs 
+ * @param rectification_matrix 
+ * @param projection_matrix 
+ */
+void CameraCalibration::setParameter(
+    const int &width, const int &height, 
+    const cv::Mat &camera_matrix, 
+    const cv::Mat &dist_coeffs, 
+    const cv::Mat &rectification_matrix, 
+    const cv::Mat &projection_matrix
+){
+    width1_ = width;
+    height1_ = height; 
+    camera_matrix1_ = camera_matrix.clone(); 
+    dist_coeffs1_ = dist_coeffs.clone(); 
+    rectification_matrix1_ = rectification_matrix.clone(); 
+    projection_matrix1_ = projection_matrix.clone(); 
+}
+
+/**
+ * @brief 
+ * 
+ * @param width1 
+ * @param height1 
+ * @param camera_matrix1 
+ * @param dist_coeffs1 
+ * @param rectification_matrix1 
+ * @param projection_matrix1 
+ * @param width2 
+ * @param height2 
+ * @param camera_matrix2 
+ * @param dist_coeffs2 
+ * @param rectification_matrix2 
+ * @param projection_matrix2 
+ */
+void CameraCalibration::setParameter( 
+    const int &width1, const int &height1, 
+    const cv::Mat &camera_matrix1, 
+    const cv::Mat &dist_coeffs1, 
+    const cv::Mat &rectification_matrix1, 
+    const cv::Mat &projection_matrix1, 
+    const int &width2, const int &height2, 
+    const cv::Mat &camera_matrix2, 
+    const cv::Mat &dist_coeffs2, 
+    const cv::Mat &rectification_matrix2, 
+    const cv::Mat &projection_matrix2
+){
+    width1_ = width1;
+    height1_ = height1; 
+    camera_matrix1_ = camera_matrix1.clone(); 
+    dist_coeffs1_ = dist_coeffs1.clone(); 
+    rectification_matrix1_ = rectification_matrix1.clone(); 
+    projection_matrix1_ = projection_matrix1.clone(); 
+    width2_ = width2;
+    height2_ = height2; 
+    camera_matrix2_ = camera_matrix2.clone(); 
+    dist_coeffs2_ = dist_coeffs2.clone(); 
+    rectification_matrix2_ = rectification_matrix2.clone(); 
+    projection_matrix2_ = projection_matrix2.clone(); 
+}
+
+/**
+ * @brief 
+ * 
+ * @param mapx 
+ * @param mapy 
+ */
+void CameraCalibration::setRectifiedMap(
+    const cv::Mat &mapx, 
+    const cv::Mat &mapy
+){
+    map1x_ = mapx.clone(); 
+    map1y_ = mapy.clone();
+}
+
+/**
+ * @brief 
+ * 
+ * @param map1x 
+ * @param map1y 
+ * @param map2x 
+ * @param map2y 
+ */
+void CameraCalibration::setRectifiedMap(
+    const cv::Mat &map1x, 
+    const cv::Mat &map1y,
+    const cv::Mat &map2x, 
+    const cv::Mat &map2y
+){
+    map1x_ = map1x.clone(); 
+    map1y_ = map1y.clone();
+    map2x_ = map2x.clone(); 
+    map2y_ = map2y.clone();
+}
+
+/**
+ * @brief initUndistortRectifyMap
+ * 
+ * @return true if params for first camera were initialized
+ * @return false 
+ */
+bool CameraCalibration::makeRectifiedMap()
+{
+    if (
+        width1_ != 0 && height1_ != 0 &&
+        !camera_matrix1_.empty() &&
+        !dist_coeffs1_.empty() && 
+        !rectification_matrix1_.empty() &&
+        !projection_matrix1_.empty()
+    ){
+        cv::initUndistortRectifyMap(
+            camera_matrix1_, dist_coeffs1_, 
+            rectification_matrix1_, projection_matrix1_, 
+            cv::Size(width1_, height1_),
+            CV_32FC1, map1x_, map1y_);
+    }
+    else return false;
+
+    if (
+        width2_ != 0 && height2_ != 0 &&
+        !camera_matrix2_.empty() &&
+        !dist_coeffs2_.empty() && 
+        !rectification_matrix2_.empty() &&
+        !projection_matrix2_.empty()
+    ){
+        cv::initUndistortRectifyMap(
+            camera_matrix2_, dist_coeffs2_, 
+            rectification_matrix2_, projection_matrix2_, 
+            cv::Size(width2_, height2_),
+            CV_32FC1, map2x_, map2y_);
+    }
+
+    return true;
+}
+
+/**
+ * @brief 
+ * 
+ * @param original_img 
+ * @param rect_img 
+ * @param approx 
+ */
+void CameraCalibration::calcRectifiedImage(
+    const cv::Mat &original_img, 
+    cv::Mat &rect_img, 
+    const int &approx
+) const {
+    cv::remap(original_img, rect_img, map1x_, map1y_, approx);
+}
+
+/**
+ * @brief 
+ * 
+ * @param original_img1 
+ * @param rect_img1 
+ * @param original_img2 
+ * @param rect_img2 
+ * @param approx 
+ */
+void CameraCalibration::calcRectifiedImage(
+    const cv::Mat &original_img1, 
+    cv::Mat &rect_img1, 
+    const cv::Mat &original_img2, 
+    cv::Mat &rect_img2, 
+    const int &approx
+) const {
+    cv::remap(original_img1, rect_img1, map1x_, map1y_, approx);
+    cv::remap(original_img2, rect_img2, map2x_, map2y_, approx);
+}
+
+/**
+ * @brief 
+ * 
+ * @param original_left_img 
+ * @param original_right_img 
+ * @param depth_img 
+ * @param sgbm 
+ * @param depth_scale 
+ */
+void CameraCalibration::calcDepthImage(
+    const cv::Mat &original_left_img, 
+    const cv::Mat &original_right_img, 
+    cv::Mat &depth_img,
+    const cv::Ptr<cv::StereoSGBM> &sgbm,
+    const double &depth_scale
+) const {
+    // --- Rectify images ---
+    cv::Mat rect_left_img, rect_right_img;
+    calcRectifiedImage(original_left_img, rect_left_img, original_right_img, rect_right_img);
+
+    // --- Convert to grayscale ---
+    cv::Mat gray_left_img, gray_right_img;
+    cv::cvtColor(rect_left_img, gray_left_img, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(rect_right_img, gray_right_img, cv::COLOR_BGR2GRAY);
+    cv::resize(gray_left_img, gray_left_img, cv::Size(), 0.5, 0.5);
+    cv::resize(gray_right_img, gray_right_img, cv::Size(), 0.5, 0.5);
+
+    // --- Compute disparity ---
+    sgbm->compute(gray_left_img, gray_right_img, depth_img);
+    depth_img.convertTo(depth_img, CV_8U, depth_scale);
+}
+
+void CameraCalibration::calcDepthImageWithPostProc(
+    const cv::Mat &original_left_img, 
+    const cv::Mat &original_right_img, 
+    cv::Mat &depth_img, 
+    const cv::Ptr<cv::StereoSGBM> &left_matcher,
+    const double &depth_scale, 
+    const cv::Ptr<cv::StereoMatcher> &right_matcher, 
+    const cv::Ptr<cv::ximgproc::DisparityWLSFilter> &wls_filter, 
+    const float &lambda, 
+    const float &sigma
+) const {
+    // --- Rectify images ---
+    cv::Mat rect_left_img, rect_right_img;
+    calcRectifiedImage(original_left_img, rect_left_img, original_right_img, rect_right_img);
+
+    // --- Convert to grayscale ---
+    cv::Mat gray_left_img, gray_right_img;
+    cv::cvtColor(rect_left_img, gray_left_img, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(rect_right_img, gray_right_img, cv::COLOR_BGR2GRAY);
+    cv::resize(gray_left_img, gray_left_img, cv::Size(), 0.5, 0.5);
+    cv::resize(gray_right_img, gray_right_img, cv::Size(), 0.5, 0.5);
+
+    // --- Compute disparity ---
+    cv::Mat depth_img_right;
+    left_matcher->compute(gray_left_img, gray_right_img, depth_img);
+    right_matcher->compute(gray_right_img, gray_left_img, depth_img_right);
+    wls_filter->setLambda(lambda);
+    wls_filter->setSigmaColor(sigma);
+    wls_filter->filter(depth_img, gray_left_img, depth_img, depth_img_right);
+    depth_img.convertTo(depth_img, CV_8U, depth_scale);
+}
+
+/**
+ * @brief 
+ * 
  * @param imgs 
  */
 void CameraCalibration::calibrateMonocularCamera(
     const std::vector<cv::Mat> &imgs
 ) const {
-    if (!checkRequirements(imgs)) return;
+    if (!checkCalibrationRequirements(imgs)) return;
 
     std::vector<std::vector<cv::Point3f>> object_points; // 3D points in real-world space
     std::vector<std::vector<cv::Point2f>> image_points;  // 2D points in image plane
@@ -140,12 +373,12 @@ void CameraCalibration::calibrateMonocularCamera(
             }
             object_points.push_back(obj);
             
-#ifdef DEBUG
+            #ifdef DEBUG
             cv::Mat drawn_img = img.clone();
             cv::drawChessboardCorners(drawn_img, board_size_, corners, found);
             cv::imshow("Detected Corners", drawn_img);
             cv::waitKey(0); 
-#endif
+            #endif
 
             std::cout << "Checkerboard found: " << cnt << std::endl;
         } 
@@ -193,24 +426,24 @@ void CameraCalibration::calibrateMonocularCamera(
 /**
  * @brief 
  * 
- * @param left_imgs 
- * @param right_imgs 
+ * @param imgs1 
+ * @param imgs2 
  */
 void CameraCalibration::calibrateStereoCamera(
-    const std::vector<cv::Mat> &left_imgs, 
-    const std::vector<cv::Mat> &right_imgs
+    const std::vector<cv::Mat> &imgs1, 
+    const std::vector<cv::Mat> &imgs2
 ) const {
-    if (!checkRequirements(left_imgs, right_imgs)) return;
+    if (!checkCalibrationRequirements(imgs1, imgs2)) return;
 
     std::vector<std::vector<cv::Point3f>> object_points;  // 3D points
     std::vector<std::vector<cv::Point2f>> left_image_points, right_image_points;
 
     std::cout << std::endl << "Corner Detection" << std::endl;
     int cnt = 0;
-    for (size_t i = 0; i < left_imgs.size(); ++i) 
+    for (size_t i = 0; i < imgs1.size(); ++i) 
     {
-        const auto &left_img = left_imgs[i];
-        const auto &right_img = right_imgs[i];
+        const auto &left_img = imgs1[i];
+        const auto &right_img = imgs2[i];
 
         if (left_img.empty() || right_img.empty()) continue;
 
@@ -252,7 +485,7 @@ void CameraCalibration::calibrateStereoCamera(
             }
             object_points.push_back(obj);
 
-#ifdef DEBUG
+            #ifdef DEBUG
             cv::Mat drawn_left_img = left_img.clone();
             cv::drawChessboardCorners(drawn_left_img, board_size_, corners_left, found_left);
             cv::Mat drawn_right_img = right_img.clone();
@@ -262,7 +495,7 @@ void CameraCalibration::calibrateStereoCamera(
             cv::resize(corner_combined, corner_combined, cv::Size(), 0.7, 0.7);
             cv::imshow("left to right corners", corner_combined);
             cv::waitKey(0); 
-#endif
+            #endif
 
             std::cout << "Checkerboard found:" << cnt << std::endl;
         } 
@@ -282,31 +515,33 @@ void CameraCalibration::calibrateStereoCamera(
     std::vector<cv::Mat> rvecs, tvecs;
     cv::Mat R, T, E, F;
     
-    std::cout << "Calibrating left camera ..." << std::endl;
+    std::cout << std::endl << "Calibrating left camera ..." << std::endl;
     double left_rms = cv::calibrateCamera(
-        object_points, left_image_points, left_imgs[0].size(),
+        object_points, left_image_points, imgs1[0].size(),
         left_camera_matrix, left_dist_coeff, rvecs, tvecs);
+    std::cout << std::endl;
     std::cout << "Calibration RMS error: " << left_rms << std::endl;
     std::cout << "Camera matrix:\n" << left_camera_matrix << std::endl;
     std::cout << "Distortion coefficients:\n" << left_dist_coeff << std::endl;
     std::cout << std::endl;
 
-    std::cout << "Calibrating right camera ..." << std::endl;
+    std::cout << std::endl << "Calibrating right camera ..." << std::endl;
     double right_rms = cv::calibrateCamera(
-        object_points, right_image_points, right_imgs[0].size(),
+        object_points, right_image_points, imgs2[0].size(),
         right_camera_matrix, right_dist_coeff, rvecs, tvecs);
+    std::cout << std::endl;
     std::cout << "Calibration RMS error: " << right_rms << std::endl;
     std::cout << "Camera matrix:\n" << right_camera_matrix << std::endl;
     std::cout << "Distortion coefficients:\n" << right_dist_coeff << std::endl;
     std::cout << std::endl;
 
-    std::cout << "Calibrating stereo camera system ..." << std::endl;
+    std::cout << std::endl << "Calibrating stereo camera system ..." << std::endl;
     double rms = cv::stereoCalibrate(
         object_points,
         left_image_points, right_image_points,
         left_camera_matrix, left_dist_coeff,
         right_camera_matrix, right_dist_coeff,
-        left_imgs[0].size(),
+        imgs1[0].size(),
         R, T, E, F,
         cv::CALIB_USE_INTRINSIC_GUESS,  
         cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 100, 1e-5)
@@ -315,7 +550,7 @@ void CameraCalibration::calibrateStereoCamera(
     cv::stereoRectify(
         left_camera_matrix, left_dist_coeff, 
         right_camera_matrix, right_dist_coeff, 
-        left_imgs[0].size(),
+        imgs1[0].size(),
         R, T, R_left, R_right, P_left, P_right, Q);
 
     std::cout << std::endl;
@@ -328,14 +563,14 @@ void CameraCalibration::calibrateStereoCamera(
     // save to file
     std::ofstream ofs_left("../left_camera_parameters.yaml");
     ofs_left << formatParameter(
-        left_imgs[0].cols, left_imgs[0].rows,
+        imgs1[0].cols, imgs1[0].rows,
         left_camera_matrix, left_dist_coeff,
         R_left, P_left);
     ofs_left.close();
 
     std::ofstream ofs_right("../right_camera_parameters.yaml");
     ofs_right << formatParameter(
-        right_imgs[0].cols, right_imgs[0].rows,
+        imgs2[0].cols, imgs2[0].rows,
         right_camera_matrix, right_dist_coeff,
         R_right, P_right);
     ofs_right.close();
@@ -348,7 +583,7 @@ void CameraCalibration::calibrateStereoCamera(
  * @return true if all requirements are true
  * @return false 
  */
-bool CameraCalibration::checkRequirements(
+bool CameraCalibration::checkCalibrationRequirements(
     const std::vector<cv::Mat> &imgs
 ) const {
     if (imgs.size() < num_imgs_)
@@ -364,21 +599,21 @@ bool CameraCalibration::checkRequirements(
 /**
  * @brief check prerequirements for stereo camera calibration
  * 
- * @param left_imgs calibration images
- * @param right_imgs same
+ * @param imgs1 calibration images
+ * @param imgs2 same
  * @return true if all requirements are true
  * @return false 
  */
-bool CameraCalibration::checkRequirements(
-    const std::vector<cv::Mat> &left_imgs, 
-    const std::vector<cv::Mat> &right_imgs
+bool CameraCalibration::checkCalibrationRequirements(
+    const std::vector<cv::Mat> &imgs1, 
+    const std::vector<cv::Mat> &imgs2
 ) const {
-    if (left_imgs.size() < num_imgs_ && right_imgs.size() < num_imgs_)
+    if (imgs1.size() < num_imgs_ && imgs2.size() < num_imgs_)
     {
         std::cerr << "[Error] The number of the images is not enough. " << num_imgs_ << " images required." << std::endl;
         return false;
     }
-    if (left_imgs.size() != right_imgs.size())
+    if (imgs1.size() != imgs2.size())
     {
         std::cerr << "[Error] The numbers of the images do not match." << std::endl;
         return false;
@@ -422,16 +657,16 @@ std::string CameraCalibration::formatParameter(
 /**
  * @brief format matrix parameter
  * 
- * @param param_type parameter name
+ * @param param_name parameter name
  * @param matrix matrix parameter
  * @return std::string 
  */
 std::string CameraCalibration::formatMatrix(
-    const std::string &param_type, 
+    const std::string &param_name, 
     const cv::Mat &matrix
 ) const {
     std::string str = 
-        param_type+
+        param_name+
         ":\n  rows: " + std::to_string(matrix.rows) + 
         "\n  cols: " + std::to_string(matrix.cols) + 
         "\n  data: [";
